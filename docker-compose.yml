@@ -1,0 +1,55 @@
+# openchamber-dev-env
+#
+# 使用方式:
+#   首次构建并启动:  docker compose up -d --build
+#   进入开发环境:    docker compose exec dev zsh
+#   查看隧道日志:    docker compose exec dev cat /tmp/cloudflared.log
+#
+# 说明:
+#   - SSH 走 cloudflared 出站隧道（config.yml 指向容器内 localhost:22），
+#     因此无需 ports 发布 22 端口
+#   - 密码建议运行时注入（.env 文件或环境变量），避免写入镜像层
+
+services:
+  dev:
+    build:
+      context: .
+      args:
+        # 构建期兜底密码；运行期 ROOT_PASSWORD 优先生效
+        ROOT_PASSWORD: ${ROOT_PASSWORD:-changeme}
+    image: openchamber-dev-env:latest
+    container_name: openchamber-dev
+    hostname: dev
+
+    # DinD 模式（DOCKER_MODE=dind / auto 且未挂载宿主 socket）需要特权
+    privileged: true
+
+    # CMD 为 zsh，保持容器前台存活
+    tty: true
+    stdin_open: true
+
+    restart: unless-stopped
+
+    environment:
+      # 所有变量从 .env 读取（模板见 .env.example），
+      # docker compose 会自动加载同目录 .env
+      DOCKER_MODE: ${DOCKER_MODE:-auto}
+      DOCKER_DATA_ROOT: ${DOCKER_DATA_ROOT:-/root/.docker-data}
+      SSH_MODE: ${SSH_MODE:-auto}
+      SSH_PORT: ${SSH_PORT:-22}
+      CLOUDFLARED_MODE: ${CLOUDFLARED_MODE:-auto}
+      # 运行期注入密码（优先于构建期，不进镜像层）
+      ROOT_PASSWORD: ${ROOT_PASSWORD:-changeme}
+      OPENCHAMBER_UI_PASSWORD: ${OPENCHAMBER_UI_PASSWORD:-changeme}
+      # Bind address (default in Docker entrypoint: 0.0.0.0)
+      OPENCHAMBER_HOST: ${OPENCHAMBER_HOST:-0.0.0.0}
+
+    volumes:
+      - ./root:/root
+      # cloudflared 隧道配置与凭据（只读挂载，entrypoint 读取
+      # /root/.cloudflared/config.yml）
+      - ./cloudflared:/root/.cloudflared:ro
+
+      # 想复用宿主机 Docker 就取消下面注释（配合 DOCKER_MODE=auto/host，
+      # 并可去掉 privileged 与 docker-data 卷）
+      # - /var/run/docker.sock:/var/run/docker.sock

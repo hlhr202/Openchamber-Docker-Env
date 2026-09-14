@@ -1,0 +1,7 @@
+cloudflared/
+
+# /root 持久化目录（含 DinD 数据、工具链，体积大且含密钥/凭据）
+root/
+
+# 环境变量（含密码，勿提交；模板文件 .env.example 保留入库）
+.env
