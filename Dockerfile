@@ -241,6 +241,21 @@ RUN cat > /usr/local/bin/docker-entrypoint.sh <<'EOF'
 #!/usr/bin/env bash
 set -e
 
+# ---------------------------------------------------------------------
+# /root 持久化恢复
+#
+# ./root:/root 挂载首次启动时目录为空，从镜像内快照恢复全部内容
+# （cloudflared、nvm、rustup、oh-my-zsh、shell 配置等），
+# 保证第一次启动即开箱即用。marker 存在则跳过 —— 绝不覆盖宿主数据。
+# ---------------------------------------------------------------------
+
+if [ -f /opt/root-initial.tar.gz ] && [ ! -e /root/.root-initialized ]; then
+    echo "Initializing /root from image snapshot..."
+    tar -xzf /opt/root-initial.tar.gz -C /root
+    touch /root/.root-initialized
+    echo "/root initialized."
+fi
+
 DOCKER_MODE="${DOCKER_MODE:-auto}"
 DOCKER_DATA_ROOT="${DOCKER_DATA_ROOT:-/root/.docker-data}"
 
@@ -371,6 +386,16 @@ exec "$@"
 EOF
 
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# ---------------------------------------------------------------------
+# /root 初始快照
+#
+# ./root:/root 外部挂载首次启动时为空目录，entrypoint 会从此快照
+# 恢复全部内容（cloudflared、nvm、rustup、oh-my-zsh、shell 配置）。
+# 存放在 /opt（不受挂载影响）。代价：镜像体积增加约一份工具链。
+# ---------------------------------------------------------------------
+
+RUN tar -czf /opt/root-initial.tar.gz -C /root .
 
 
 WORKDIR /root

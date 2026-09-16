@@ -48,7 +48,7 @@ services:
       - ./root:/root
       # cloudflared 隧道配置与凭据（只读挂载，entrypoint 读取
       # /root/.cloudflared/config.yml）
-      - ./cloudflared:/root/.cloudflared:ro
+      - ./cloudflared:/root/.cloudflared
 
       # 想复用宿主机 Docker 就取消下面注释（配合 DOCKER_MODE=auto/host，
       # 并可去掉 privileged 与 docker-data 卷）
